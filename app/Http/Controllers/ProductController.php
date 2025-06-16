@@ -12,7 +12,9 @@ class ProductController extends Controller
     public function index()
     {
         $products = Product::with('category')->latest()->paginate(12);
-        return view('products.index', compact('products'));
+        $categories = Category::withCount('products')->get();
+
+        return view('products.index', compact('products', 'categories'));
     }
 
     public function create()
@@ -43,7 +45,16 @@ class ProductController extends Controller
 
     public function show(Product $product)
     {
-        return view('products.show', compact('product'));
+        $relatedProducts = Product::where('category_id', $product->category_id)
+                                ->where('id', '!=', $product->id)
+                                ->limit(4)
+                                ->get();
+
+        return view('products.show', [
+            'product' => $product,
+            'relatedProducts' => $relatedProducts,
+            'categories' => Category::withCount('products')->get()
+        ]);
     }
 
     public function edit(Product $product)

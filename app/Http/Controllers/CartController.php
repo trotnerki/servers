@@ -4,67 +4,118 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class CartController extends Controller
 {
-    public function add(Product $product)
+    public function add(Request $request, Product $product)
     {
-        $cart = session()->get('cart', []);
+        try {
 
-        if (isset($cart[$product->id])) {
-            $cart[$product->id]['quantity']++;
-        } else {
-            $cart[$product->id] = [
-                'name' => $product->name,
-                'price' => $product->price,
-                'quantity' => 1,
-                'image' => $product->image
-            ];
+            $quantity = $request->input('quantity', 1);
+
+
+            $validated = $request->validate([
+                'quantity' => 'sometimes|integer|min:1|max:10'
+            ], [
+                'quantity.min' => 'Количество должно быть не менее 1',
+                'quantity.max' => 'Максимальное количество - 10'
+            ]);
+
+
+            $cart = session()->get('cart', []);
+
+
+            if (isset($cart[$product->id])) {
+                $newQuantity = $cart[$product->id]['quantity'] + $quantity;
+                if ($newQuantity > 10) {
+                    return redirect()->back()->with('error', 'Нельзя добавить больше 10 единиц одного товара');
+                }
+                $cart[$product->id]['quantity'] = $newQuantity;
+            } else {
+                $cart[$product->id] = [
+                    "id" => $product->id,
+                    "name" => $product->name,
+                    "quantity" => $quantity,
+                    "price" => $product->price,
+                    "image" => $product->image ? asset('storage/'.$product->image) : null,
+                    "stock" => $product->stock
+                ];
+            }
+
+
+            session()->put('cart', $cart);
+
+
+            Log::info('Товар добавлен в корзину', [
+                'product_id' => $product->id,
+                'quantity' => $quantity,
+                'cart' => $cart
+            ]);
+
+            return redirect()->back()->with('success', 'Товар успешно добавлен в корзину');
+
+        } catch (\Exception $e) {
+            Log::error('Ошибка при добавлении в корзину: '.$e->getMessage());
+            return redirect()->back()->with('error', 'Произошла ошибка при добавлении товара в корзину');
         }
-
-        session()->put('cart', $cart);
-        return back()->with('success', 'Товар добавлен в корзину');
     }
 
     public function remove(Product $product)
     {
-        $cart = session()->get('cart');
+        try {
+            $cart = session()->get('cart', []);
 
-        if (isset($cart[$product->id])) {
-            if ($cart[$product->id]['quantity'] > 1) {
-                $cart[$product->id]['quantity']--;
-            } else {
+            if (isset($cart[$product->id])) {
                 unset($cart[$product->id]);
+                session()->put('cart', $cart);
+
+                Log::info('Товар удален из корзины', [
+                    'product_id' => $product->id
+                ]);
+
+                return redirect()->back()->with('success', 'Товар удален из корзины');
             }
 
-            session()->put('cart', $cart);
-        }
+            return redirect()->back()->with('error', 'Товар не найден в корзине');
 
-        return back()->with('success', 'Товар удален из корзины');
+        } catch (\Exception $e) {
+            Log::error('Ошибка при удалении из корзины: '.$e->getMessage());
+            return redirect()->back()->with('error', 'Произошла ошибка при удалении товара');
+        }
     }
 
     public function clear()
     {
-        session()->forget('cart');
-        return back()->with('success', 'Корзина очищена');
+        try {
+            session()->forget('cart');
+            Log::info('Корзина очищена');
+            return redirect()->route('cart.view')->with('success', 'Корзина очищена');
+        } catch (\Exception $e) {
+            Log::error('Ошибка при очистке корзины: '.$e->getMessage());
+            return redirect()->back()->with('error', 'Произошла ошибка при очистке корзины');
+        }
     }
 
     public function view()
     {
-        $cart = session()->get('cart', []);
-        $total = array_reduce($cart, fn($sum, $item) => $sum + ($item['price'] * $item['quantity']), 0);
+        try {
+            $cart = session()->get('cart', []);
+            $total = 0;
 
-        return view('cart.view', compact('cart', 'total'));
-    }
+            foreach ($cart as $item) {
+                $total += $item['price'] * $item['quantity'];
+            }
 
-    public function checkout()
-    {
-        $cart = session()->get('cart', []);
+            return view('cart.view', [
+                'cart' => $cart,
+                'total' => $total,
+                'cartCount' => count($cart)
+            ]);
 
-        if (empty($cart)) {
-            return redirect()->route('cart.view')->with('error', 'Корзина пуста');
+        } catch (\Exception $e) {
+            Log::error('Ошибка при просмотре корзины: '.$e->getMessage());
+            return redirect()->route('home')->with('error', 'Произошла ошибка при загрузке корзины');
         }
-
-        return view('cart.checkout');
     }
 }

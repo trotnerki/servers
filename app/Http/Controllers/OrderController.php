@@ -25,7 +25,6 @@ class OrderController extends Controller
 
     public function create()
     {
-        // Логика создания заказа обычно через корзину
         return redirect()->route('cart.view');
     }
 

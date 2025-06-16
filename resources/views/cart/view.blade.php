@@ -1,58 +1,60 @@
 @extends('layouts.app')
 
 @section('content')
-    <div class="container">
-        <h1 class="my-4">Ваша корзина</h1>
+<div class="container py-4">
+    <h1 class="mb-4">Ваша корзина</h1>
 
-        @if (empty($cart))
-            <div class="alert alert-info">Ваша корзина пуста</div>
-        @else
-            <div class="table-responsive">
-                <table class="table table-bordered">
-                    <thead class="thead-light">
+    @if(session('cart') && count(session('cart')))
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Товар</th>
+                        <th>Цена</th>
+                        <th>Количество</th>
+                        <th>Сумма</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @php $total = 0; @endphp
+                    @foreach(session('cart') as $id => $details)
+                        @php $total += $details['price'] * $details['quantity'] @endphp
                         <tr>
-                            <th>Товар</th>
-                            <th>Цена</th>
-                            <th>Количество</th>
-                            <th>Сумма</th>
-                            <th>Действия</th>
+                            <td>{{ $details['name'] }}</td>
+                            <td>{{ number_format($details['price'], 2) }} ₽</td>
+                            <td>{{ $details['quantity'] }}</td>
+                            <td>{{ number_format($details['price'] * $details['quantity'], 2) }} ₽</td>
+                            <td>
+                                <form action="{{ route('cart.remove', $id) }}" method="POST">
+                                    @csrf
+                                    <button type="submit" class="btn btn-sm btn-danger">×</button>
+                                </form>
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($cart as $id => $item)
-                            <tr>
-                                <td>
-                                    @if($item['image'])
-                                        <img src="{{ asset('storage/' . $item['image']) }}" width="50" class="mr-2">
-                                    @endif
-                                    {{ $item['name'] }}
-                                </td>
-                                <td>{{ number_format($item['price'], 2) }} ₽</td>
-                                <td>{{ $item['quantity'] }}</td>
-                                <td>{{ number_format($item['price'] * $item['quantity'], 2) }} ₽</td>
-                                <td>
-                                    <div class="btn-group btn-group-sm">
-                                        <a href="{{ route('cart.add', $id) }}" class="btn btn-primary">+</a>
-                                        <a href="{{ route('cart.remove', $id) }}" class="btn btn-warning">-</a>
-                                    </div>
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                    <tfoot>
-                        <tr>
-                            <td colspan="3" class="text-right"><strong>Итого:</strong></td>
-                            <td><strong>{{ number_format($total, 2) }} ₽</strong></td>
-                            <td></td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
+                    @endforeach
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <th colspan="3">Итого:</th>
+                        <th colspan="2">{{ number_format($total, 2) }} ₽</th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
 
-            <div class="d-flex justify-content-between mt-4">
-                <a href="{{ route('cart.clear') }}" class="btn btn-danger">Очистить корзину</a>
-                <a href="{{ route('cart.checkout') }}" class="btn btn-success">Оформить заказ</a>
-            </div>
-        @endif
-    </div>
+        <div class="d-flex justify-content-between mt-4">
+            <form action="{{ route('cart.clear') }}" method="POST">
+                @csrf
+                <button type="submit" class="btn btn-outline-danger">Очистить корзину</button>
+            </form>
+            <a href="#" class="btn btn-primary">Оформить заказ</a>
+        </div>
+    @else
+        <div class="alert alert-info">
+            Ваша корзина пуста
+        </div>
+        <a href="{{ route('products.index') }}" class="btn btn-outline-primary">Вернуться к покупкам</a>
+    @endif
+</div>
 @endsection
